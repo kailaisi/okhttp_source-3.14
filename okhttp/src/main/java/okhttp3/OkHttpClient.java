@@ -203,7 +203,9 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
   }
 
   OkHttpClient(Builder builder) {
+    //分发器
     this.dispatcher = builder.dispatcher;
+    //搭理
     this.proxy = builder.proxy;
     this.protocols = builder.protocols;
     this.connectionSpecs = builder.connectionSpecs;
