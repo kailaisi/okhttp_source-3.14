@@ -40,13 +40,13 @@ import static java.net.HttpURLConnection.HTTP_REQ_TOO_LONG;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
- * Given a request and cached response, this figures out whether to use the network, the cache, or
- * both.
+ * Given a request and cached response, this figures out whether to use the network, the cache, or both.
  *
  * <p>Selecting a cache strategy may add conditions to the request (like the "If-Modified-Since"
  * header for conditional GETs) or warnings to the cached response (if the cached data is
  * potentially stale).
  */
+//缓存策略
 public final class CacheStrategy {
   /** The request to send on the network, or null if this call doesn't use the network. */
   public final @Nullable Request networkRequest;
@@ -181,13 +181,17 @@ public final class CacheStrategy {
     }
 
     /** Returns a strategy to use assuming the request can use the network. */
+    //构造一个缓存策略类
     private CacheStrategy getCandidate() {
       // No cached response.
+      //首先确定了4种必须进行网络请求的情况，不会使用缓存
+      //没有缓存结果
       if (cacheResponse == null) {
         return new CacheStrategy(request, null);
       }
 
       // Drop the cached response if it's missing a required handshake.
+      //如果缺少必要的握手，那么就清除掉缓存
       if (request.isHttps() && cacheResponse.handshake() == null) {
         return new CacheStrategy(request, null);
       }
@@ -195,18 +199,22 @@ public final class CacheStrategy {
       // If this response shouldn't have been stored, it should never be used
       // as a response source. This check should be redundant as long as the
       // persistence store is well-behaved and the rules are constant.
+      //不允许使用缓存
       if (!isCacheable(cacheResponse, request)) {
         return new CacheStrategy(request, null);
       }
-
+      //request没有设置Cachecontrol的
       CacheControl requestCaching = request.cacheControl();
       if (requestCaching.noCache() || hasConditions(request)) {
         return new CacheStrategy(request, null);
       }
+      //上面的情况都是需要去使用网络请求的。而具体的缓存策略主要是下面的部分。根据具体的情况，
 
+      //获取上次返回的数据的CacheControl信息
       CacheControl responseCaching = cacheResponse.cacheControl();
-
+      //缓存的时长
       long ageMillis = cacheResponseAge();
+      //刷新的毫秒数
       long freshMillis = computeFreshnessLifetime();
 
       if (requestCaching.maxAgeSeconds() != -1) {
@@ -222,7 +230,7 @@ public final class CacheStrategy {
       if (!responseCaching.mustRevalidate() && requestCaching.maxStaleSeconds() != -1) {
         maxStaleMillis = SECONDS.toMillis(requestCaching.maxStaleSeconds());
       }
-
+      //如果设置了使用缓存，而且缓存未过期，则直接强制使用本地缓存
       if (!responseCaching.noCache() && ageMillis + minFreshMillis < freshMillis + maxStaleMillis) {
         Response.Builder builder = cacheResponse.newBuilder();
         if (ageMillis + minFreshMillis >= freshMillis) {
@@ -232,6 +240,7 @@ public final class CacheStrategy {
         if (ageMillis > oneDayMillis && isFreshnessLifetimeHeuristic()) {
           builder.addHeader("Warning", "113 HttpURLConnection \"Heuristic expiration\"");
         }
+        //这了里是设置强制使用本地缓存
         return new CacheStrategy(null, builder.build());
       }
 
@@ -262,8 +271,7 @@ public final class CacheStrategy {
     }
 
     /**
-     * Returns the number of milliseconds that the response was fresh for, starting from the served
-     * date.
+     * Returns the number of milliseconds that the response was fresh for, starting from the served date.
      */
     private long computeFreshnessLifetime() {
       CacheControl responseCaching = cacheResponse.cacheControl();
@@ -295,12 +303,8 @@ public final class CacheStrategy {
      * 7234, 4.2.3 Calculating Age.
      */
     private long cacheResponseAge() {
-      long apparentReceivedAge = servedDate != null
-          ? Math.max(0, receivedResponseMillis - servedDate.getTime())
-          : 0;
-      long receivedAge = ageSeconds != -1
-          ? Math.max(apparentReceivedAge, SECONDS.toMillis(ageSeconds))
-          : apparentReceivedAge;
+      long apparentReceivedAge = servedDate != null? Math.max(0, receivedResponseMillis - servedDate.getTime()) : 0;
+      long receivedAge = ageSeconds != -1 ? Math.max(apparentReceivedAge, SECONDS.toMillis(ageSeconds)) : apparentReceivedAge;
       long responseDuration = receivedResponseMillis - sentRequestMillis;
       long residentDuration = nowMillis - receivedResponseMillis;
       return receivedAge + responseDuration + residentDuration;

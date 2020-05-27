@@ -37,9 +37,9 @@ import okio.Sink;
 import okio.Source;
 
 /**
- * Transmits a single HTTP request and a response pair. This layers connection management and events
- * on {@link ExchangeCodec}, which handles the actual I/O.
+ * Transmits a single HTTP request and a response pair. This layers connection management and event on {@link ExchangeCodec}, which handles the actual I/O.
  */
+//传输单个HTTP请求和响应对。这个层连接管理和{@link ExchangeCodec}上的事件，它处理实际的I/O。
 public final class Exchange {
   final Transmitter transmitter;
   final Call call;
@@ -65,7 +65,7 @@ public final class Exchange {
   public boolean isDuplex() {
     return duplex;
   }
-
+  //写请求头
   public void writeRequestHeaders(Request request) throws IOException {
     try {
       eventListener.requestHeadersStart(call);

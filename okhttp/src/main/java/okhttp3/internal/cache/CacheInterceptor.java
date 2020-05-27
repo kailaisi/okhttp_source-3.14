@@ -43,7 +43,10 @@ import static okhttp3.internal.Util.closeQuietly;
 import static okhttp3.internal.Util.discard;
 
 /** Serves requests from the cache and writes responses to the cache. */
+//将返回的数据进行缓存并返回缓存的信息
+  //关于Http的缓存可参考：https://segmentfault.com/a/1190000010690320
 public final class CacheInterceptor implements Interceptor {
+  //这里的cache,是通过OkhttpClient传进来的，Cache.internalCache
   final @Nullable InternalCache cache;
 
   public CacheInterceptor(@Nullable InternalCache cache) {
@@ -51,17 +54,19 @@ public final class CacheInterceptor implements Interceptor {
   }
 
   @Override public Response intercept(Chain chain) throws IOException {
-    Response cacheCandidate = cache != null
-        ? cache.get(chain.request())
-        : null;
+    //如果cache存在，则尝试根据request获取缓存
+    Response cacheCandidate = cache != null ? cache.get(chain.request()) : null;
 
     long now = System.currentTimeMillis();
-
+    //构造缓存策略
     CacheStrategy strategy = new CacheStrategy.Factory(now, chain.request(), cacheCandidate).get();
+    //networkRequest 为null，说明是强制缓存，直接就使用本地缓存了
     Request networkRequest = strategy.networkRequest;
+    //该请求上次缓存的结果
     Response cacheResponse = strategy.cacheResponse;
 
     if (cache != null) {
+      //这里会跟踪缓存，如果命中了缓存的话，就将缓存命中计数器+1
       cache.trackResponse(strategy);
     }
 
@@ -70,7 +75,9 @@ public final class CacheInterceptor implements Interceptor {
     }
 
     // If we're forbidden from using the network and the cache is insufficient, fail.
+    //如果设置禁止从网络获取响应 且 缓存不可用 那么返回504失败
     if (networkRequest == null && cacheResponse == null) {
+      //networkRequest==null，表明是强制使用本地缓存。CacheResponse==null，表示没有缓存结果。这里就会自己创建一个返回信息，错误码是504
       return new Response.Builder()
           .request(chain.request())
           .protocol(Protocol.HTTP_1_1)
@@ -83,14 +90,16 @@ public final class CacheInterceptor implements Interceptor {
     }
 
     // If we don't need the network, we're done.
+    //这个分支表示，使用了强制本地缓存，而且存在着上次的缓存结果。那么就将上次的缓存结果进行返回
     if (networkRequest == null) {
       return cacheResponse.newBuilder()
           .cacheResponse(stripBody(cacheResponse))
           .build();
     }
-
+    //从这里往后，证明走的是对比缓存，需要请求网络，如果返回的是304错误码，则使用原来的缓存结果，否则就使用网络请求的结果
     Response networkResponse = null;
     try {
+      //获取网络返回数据
       networkResponse = chain.proceed(networkRequest);
     } finally {
       // If we're crashing on I/O or otherwise, don't leak the cache body.
@@ -100,7 +109,9 @@ public final class CacheInterceptor implements Interceptor {
     }
 
     // If we have a cache response too, then we're doing a conditional get.
+    //缓存非空
     if (cacheResponse != null) {
+      //从网络获取respone，如果返回码为304 则使用本地的缓存结果，但是会调整对应的一些header，请求的时间等相关参数
       if (networkResponse.code() == HTTP_NOT_MODIFIED) {
         Response response = cacheResponse.newBuilder()
             .headers(combine(cacheResponse.headers(), networkResponse.headers()))
@@ -114,22 +125,28 @@ public final class CacheInterceptor implements Interceptor {
         // Update the cache after combining headers but before stripping the
         // Content-Encoding header (as performed by initContentStream()).
         cache.trackConditionalCacheHit();
+        //更新缓存
         cache.update(cacheResponse, response);
         return response;
       } else {
         closeQuietly(cacheResponse.body());
       }
     }
-
+    //走到这里说明没有缓存可以使用，或者对比缓存不通过，表示缓存失效了。需要使用网络返回的response信息
     Response response = networkResponse.newBuilder()
         .cacheResponse(stripBody(cacheResponse))
         .networkResponse(stripBody(networkResponse))
         .build();
 
     if (cache != null) {
+      //cache不为空,则将最新的response缓存到cache
       if (HttpHeaders.hasBody(response) && CacheStrategy.isCacheable(response, networkRequest)) {
         // Offer this request to the cache.
+        //进行缓存，这里的put只会缓存对应的header
         CacheRequest cacheRequest = cache.put(response);
+        //这里会将response的body信息也缓存到对应的文件中。
+        // 由于body是以流的形式读取的，不像Header可以一次性写入，所以body的缓存必然是在读取的时候，一边从流里读，一边缓存到文件。
+        // 由于流只能读一次，如果把流里面的内容都读出来返回给app调用层,就没办法重新读一遍缓存到文件中了，所以需要把流内容拷贝，这也是为什么要返回通过cacheWritingResponse()方法处理过后的Response的原因。
         return cacheWritingResponse(cacheRequest, response);
       }
 
@@ -156,8 +173,7 @@ public final class CacheInterceptor implements Interceptor {
    * consumer. This is careful to discard bytes left over when the stream is closed; otherwise we
    * may never exhaust the source stream and therefore not complete the cached response.
    */
-  private Response cacheWritingResponse(final CacheRequest cacheRequest, Response response)
-      throws IOException {
+  private Response cacheWritingResponse(final CacheRequest cacheRequest, Response response) throws IOException {
     // Some apps return a null body; for compatibility we treat that like a null cache request.
     if (cacheRequest == null) return response;
     Sink cacheBodyUnbuffered = cacheRequest.body();

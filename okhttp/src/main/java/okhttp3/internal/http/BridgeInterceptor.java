@@ -37,6 +37,8 @@ import static okhttp3.internal.Util.hostHeader;
  * request. Then it proceeds to call the network. Finally it builds a user response from the network
  * response.
  */
+//桥接拦截器，用于桥接应用数据和网络的数据
+  //1. 将用户的请求request，桥接变为网络请求request。2.将网络的response信息转化为用户的response
 public final class BridgeInterceptor implements Interceptor {
   private final CookieJar cookieJar;
 
@@ -50,8 +52,10 @@ public final class BridgeInterceptor implements Interceptor {
 
     RequestBody body = userRequest.body();
     if (body != null) {
+      //如果有requestBody，设置"Content-Type"，"Content-Length"，"Transfer-Encoding"等信息
       MediaType contentType = body.contentType();
       if (contentType != null) {
+        //Content-Type
         requestBuilder.header("Content-Type", contentType.toString());
       }
 
@@ -64,43 +68,46 @@ public final class BridgeInterceptor implements Interceptor {
         requestBuilder.removeHeader("Content-Length");
       }
     }
-
+    //设置Host
     if (userRequest.header("Host") == null) {
       requestBuilder.header("Host", hostHeader(userRequest.url(), false));
     }
-
+    //设置Connection
     if (userRequest.header("Connection") == null) {
       requestBuilder.header("Connection", "Keep-Alive");
     }
 
     // If we add an "Accept-Encoding: gzip" header field we're responsible for also decompressing
     // the transfer stream.
+    //标识是否是自动添加的Gzip压缩
     boolean transparentGzip = false;
+    //Accept-Encoding，以及Gzip压缩传输
     if (userRequest.header("Accept-Encoding") == null && userRequest.header("Range") == null) {
       transparentGzip = true;
       requestBuilder.header("Accept-Encoding", "gzip");
     }
-
+    //设置Cookie列表
     List<Cookie> cookies = cookieJar.loadForRequest(userRequest.url());
     if (!cookies.isEmpty()) {
       requestBuilder.header("Cookie", cookieHeader(cookies));
     }
-
+    //User-Agent
     if (userRequest.header("User-Agent") == null) {
       requestBuilder.header("User-Agent", Version.userAgent());
     }
-
+    //网络返回信息
     Response networkResponse = chain.proceed(requestBuilder.build());
 
     HttpHeaders.receiveHeaders(cookieJar, userRequest.url(), networkResponse.headers());
 
-    Response.Builder responseBuilder = networkResponse.newBuilder()
-        .request(userRequest);
+    Response.Builder responseBuilder = networkResponse.newBuilder().request(userRequest);
 
     if (transparentGzip
         && "gzip".equalsIgnoreCase(networkResponse.header("Content-Encoding"))
         && HttpHeaders.hasBody(networkResponse)) {
+      //如果代码里面自动使用了gzip压缩，那么需要通过Gzip进行处理，移除对应的Header，将读取的数据进行解压缩
       GzipSource responseBody = new GzipSource(networkResponse.body().source());
+      //移除header中的Content-Length和"Content-Encoding
       Headers strippedHeaders = networkResponse.headers().newBuilder()
           .removeAll("Content-Encoding")
           .removeAll("Content-Length")

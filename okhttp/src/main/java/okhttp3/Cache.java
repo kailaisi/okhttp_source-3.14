@@ -140,7 +140,7 @@ public final class Cache implements Closeable, Flushable {
   private static final int ENTRY_BODY = 1;
   private static final int ENTRY_COUNT = 2;
 
-  final InternalCache internalCache = new InternalCache() {
+  final InternalCache  = new InternalCache() {
     @Override public @Nullable Response get(Request request) throws IOException {
       return Cache.this.get(request);
     }
@@ -166,6 +166,7 @@ public final class Cache implements Closeable, Flushable {
     }
   };
 
+  //使用的是DiskLruCache策略
   final DiskLruCache cache;
 
   /* read and write statistics, all guarded by 'this' */
@@ -178,6 +179,7 @@ public final class Cache implements Closeable, Flushable {
   /**
    * Create a cache of at most {@code maxSize} bytes in {@code directory}.
    */
+  //能够设置对应的缓存路径以及最大缓存数量
   public Cache(File directory, long maxSize) {
     this(directory, maxSize, FileSystem.SYSTEM);
   }
@@ -195,6 +197,7 @@ public final class Cache implements Closeable, Flushable {
     DiskLruCache.Snapshot snapshot;
     Entry entry;
     try {
+      //获取缓存的快照
       snapshot = cache.get(key);
       if (snapshot == null) {
         return null;
@@ -205,14 +208,15 @@ public final class Cache implements Closeable, Flushable {
     }
 
     try {
+      //将快照封装为一个实体
       entry = new Entry(snapshot.getSource(ENTRY_METADATA));
     } catch (IOException e) {
       Util.closeQuietly(snapshot);
       return null;
     }
-
+    //获取对应的response
     Response response = entry.response(snapshot);
-
+    //校验request和response是否匹配？难道怕人为修改导致而且匹配不上？
     if (!entry.matches(request, response)) {
       Util.closeQuietly(response.body());
       return null;
@@ -222,9 +226,11 @@ public final class Cache implements Closeable, Flushable {
   }
 
   @Nullable CacheRequest put(Response response) {
+    //网络请求的类型
     String requestMethod = response.request().method();
 
     if (HttpMethod.invalidatesCache(response.request().method())) {
+      //对方法是POST，PATCH，PUT，DELETE，MOVE的请求，将缓存清除掉，这些是不应该被缓存的
       try {
         remove(response.request());
       } catch (IOException ignored) {
@@ -232,25 +238,29 @@ public final class Cache implements Closeable, Flushable {
       }
       return null;
     }
+    //非GET的不被缓存
     if (!requestMethod.equals("GET")) {
       // Don't cache non-GET responses. We're technically allowed to cache
       // HEAD requests and some POST requests, but the complexity of doing
       // so is high and the benefit is low.
       return null;
     }
-
+    //Header校验不通过，不被缓存
     if (HttpHeaders.hasVaryAll(response)) {
       return null;
     }
-
+    //创建了一个Entry对象
     Entry entry = new Entry(response);
     DiskLruCache.Editor editor = null;
     try {
+      //从DiskLruCache中获取一个editor。
       editor = cache.edit(key(response.request().url()));
       if (editor == null) {
         return null;
       }
+      //调用writeTo，将Entry写入到editor所代表的文件中
       entry.writeTo(editor);
+      //返回CacheRequest对象
       return new CacheRequestImpl(editor);
     } catch (IOException e) {
       abortQuietly(editor);
@@ -606,8 +616,9 @@ public final class Cache implements Closeable, Flushable {
     }
 
     public void writeTo(DiskLruCache.Editor editor) throws IOException {
+      //打开了0文件对应的输出流
       BufferedSink sink = Okio.buffer(editor.newSink(ENTRY_METADATA));
-
+      //按顺序写入Response的Header中的内容,这一步完成了Header的缓存
       sink.writeUtf8(url)
           .writeByte('\n');
       sink.writeUtf8(requestMethod)

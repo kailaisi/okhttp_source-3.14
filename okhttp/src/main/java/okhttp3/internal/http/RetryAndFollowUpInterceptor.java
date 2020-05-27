@@ -55,6 +55,7 @@ import static okhttp3.internal.http.StatusLine.HTTP_TEMP_REDIRECT;
  * This interceptor recovers from failures and follows redirects as necessary. It may throw an
  * {@link IOException} if the call was canceled.
  */
+//当接收到失败或者重定向的错误信息时，进行处理
 public final class RetryAndFollowUpInterceptor implements Interceptor {
   /**
    * How many redirects and auth challenges should we attempt? Chrome follows 21 redirects; Firefox,
@@ -69,6 +70,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
   }
 
   @Override public Response intercept(Chain chain) throws IOException {
+    //获取请求。这里的请求已经不是最初始的request了，而是经过了前面的层层封装处理之后的request信息
     Request request = chain.request();
     RealInterceptorChain realChain = (RealInterceptorChain) chain;
     Transmitter transmitter = realChain.transmitter();
@@ -85,9 +87,11 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
       Response response;
       boolean success = false;
       try {
+        //执行责任链的proceed方法，其实是下一个拦截器的intercept方法
         response = realChain.proceed(request, transmitter, null);
         success = true;
       } catch (RouteException e) {
+        //如果通过某个route连接失败则根据具体的情况尝试恢复。
         // The attempt to connect via a route failed. The request will not have been sent.
         if (!recover(e.getLastConnectException(), transmitter, false, request)) {
           throw e.getFirstConnectException();
@@ -95,17 +99,21 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         continue;
       } catch (IOException e) {
         // An attempt to communicate with a server failed. The request may have been sent.
+        //如果发生IO异常，则根据具体的情况尝试恢复。
         boolean requestSendStarted = !(e instanceof ConnectionShutdownException);
         if (!recover(e, transmitter, requestSendStarted, request)) throw e;
         continue;
       } finally {
         // The network call threw an exception. Release any resources.
         if (!success) {
+          //释放资源
           transmitter.exchangeDoneDueToException();
         }
       }
 
       // Attach the prior response if it exists. Such responses never have a body.
+      //如果发生过重定向的话，重定向的返回信息是priorResponse
+      // 这里会将第一次重定向返回的数据，封装到response中。保证用户知道发生了重定向
       if (priorResponse != null) {
         response = response.newBuilder()
             .priorResponse(priorResponse.newBuilder()
@@ -116,30 +124,34 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
       Exchange exchange = Internal.instance.exchange(response);
       Route route = exchange != null ? exchange.connection().route() : null;
+      //判断返回的信息是否是重定向，
+      // 如果是重定向的话，会生成新的请求信息，url指向了新的地址，body信息则根据实际情况进行处理，header也会根据需要进行移除
       Request followUp = followUpRequest(response, route);
-
+      //如果非重定向，则返回
       if (followUp == null) {
         if (exchange != null && exchange.isDuplex()) {
           transmitter.timeoutEarlyExit();
         }
         return response;
       }
-
+      //如果是重定向，则获取返回的重定向的请求body
       RequestBody followUpBody = followUp.body();
+      //神秘方法isOneShot是一个可以覆写的方法，如果返回true，那么就消息体最多一次对{@link #writeTo}的调用，并且可以最多一次传输
       if (followUpBody != null && followUpBody.isOneShot()) {
         return response;
       }
-
+      //关闭
       closeQuietly(response.body());
       if (transmitter.hasExchange()) {
         exchange.detachWithViolence();
       }
-
+      //重定向次数不能超过设置的上限（20次）
       if (++followUpCount > MAX_FOLLOW_UPS) {
         throw new ProtocolException("Too many follow-up requests: " + followUpCount);
       }
-
+      //将请求变化为重定向的那个请求，然后通过while循环去执行
       request = followUp;
+      //将本次的返回信息保存到priorResponse中
       priorResponse = response;
     }
   }
@@ -150,18 +162,23 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
    * be recovered if the body is buffered or if the failure occurred before the request has been
    * sent.
    */
-  private boolean recover(IOException e, Transmitter transmitter,
-      boolean requestSendStarted, Request userRequest) {
+  //判断发生的异常情况是否需要尝试恢复。只有当请求体被缓冲或者请求体在请求发送之前发生故障时，才可以恢复带有请求体的请求。
+  // true: 可以尝试进行恢复的话，
+  private boolean recover(IOException e, Transmitter transmitter, boolean requestSendStarted, Request userRequest) {
     // The application layer has forbidden retries.
+    //如果应用层设置了不允许失败后重试，则返回false
     if (!client.retryOnConnectionFailure()) return false;
 
     // We can't send the request body again.
+    //如果请求体已经开始发送了，但是请求体只允许写一次，则返回false
     if (requestSendStarted && requestIsOneShot(e, userRequest)) return false;
 
     // This exception is fatal.
+    //异常是致命的 返回false
     if (!isRecoverable(e, requestSendStarted)) return false;
 
     // No more routes to attempt.
+    //没有更多的route可供尝试 返回fasle
     if (!transmitter.canRetry()) return false;
 
     // For failure recovery, use the same route selector with a new connection.
@@ -213,51 +230,58 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
    */
   private Request followUpRequest(Response userResponse, @Nullable Route route) throws IOException {
     if (userResponse == null) throw new IllegalStateException();
+    //返回的网络码
     int responseCode = userResponse.code();
-
+    //请求的类型（POST，GET，HEAD，DELETE）
     final String method = userResponse.request().method();
     switch (responseCode) {
-      case HTTP_PROXY_AUTH:
+      case HTTP_PROXY_AUTH://407错误码
         Proxy selectedProxy = route != null
             ? route.proxy()
             : client.proxy();
-        if (selectedProxy.type() != Proxy.Type.HTTP) {
+        if (selectedProxy.type() != Proxy.Type.HTTP) {//如果没有使用代理，但是返回了407，那么直接抛出异常
           throw new ProtocolException("Received HTTP_PROXY_AUTH (407) code while not using proxy");
         }
-        return client.proxyAuthenticator().authenticate(route, userResponse);
+        return client.proxyAuthenticator().authenticate(route, userResponse);//代理验证
 
       case HTTP_UNAUTHORIZED:
-        return client.authenticator().authenticate(route, userResponse);
+        return client.authenticator().authenticate(route, userResponse);//身份认证
 
-      case HTTP_PERM_REDIRECT:
-      case HTTP_TEMP_REDIRECT:
+      case HTTP_PERM_REDIRECT://308错误码  重定向
+      case HTTP_TEMP_REDIRECT://307错误码  临时重定向
         // "If the 307 or 308 status code is received in response to a request other than GET
         // or HEAD, the user agent MUST NOT automatically redirect the request"
-        if (!method.equals("GET") && !method.equals("HEAD")) {
+        if (!method.equals("GET") && !method.equals("HEAD")) {//307、308 两种code不对 GET、HEAD 以外的请求重定向
           return null;
         }
         // fall-through
-      case HTTP_MULT_CHOICE:
-      case HTTP_MOVED_PERM:
-      case HTTP_MOVED_TEMP:
-      case HTTP_SEE_OTHER:
+      case HTTP_MULT_CHOICE://300
+      case HTTP_MOVED_PERM://301
+      case HTTP_MOVED_TEMP://302
+      case HTTP_SEE_OTHER://303
         // Does the client allow redirects?
+        //如果客户端不允许重定向，则直接返回失败。
         if (!client.followRedirects()) return null;
-
+        //获取header中的Location重定向的url信息
         String location = userResponse.header("Location");
         if (location == null) return null;
+        //校验返回的url地址的合法性
         HttpUrl url = userResponse.request().url().resolve(location);
 
         // Don't follow redirects to unsupported protocols.
         if (url == null) return null;
 
         // If configured, don't follow redirects between SSL and non-SSL.
+        //如果配置了不允许SSL(https)和non-SSL(http)之间重定向，则返回空
         boolean sameScheme = url.scheme().equals(userResponse.request().url().scheme());
+        //如果不允许followSslRedirects重定向，但是重定向的地址是ssl
         if (!sameScheme && !client.followSslRedirects()) return null;
 
         // Most redirects don't include a request body.
+        //大部分的重定向是没有requestbody的，所以需要使用原来的请求中的request信息
         Request.Builder requestBuilder = userResponse.request().newBuilder();
-        if (HttpMethod.permitsRequestBody(method)) {
+        if (HttpMethod.permitsRequestBody(method)) {//如果原来的请求支持requestbody
+          //是否带body进行重定向
           final boolean maintainBody = HttpMethod.redirectsWithBody(method);
           if (HttpMethod.redirectsToGet(method)) {
             requestBuilder.method("GET", null);
@@ -265,7 +289,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
             RequestBody requestBody = maintainBody ? userResponse.request().body() : null;
             requestBuilder.method(method, requestBody);
           }
-          if (!maintainBody) {
+          if (!maintainBody) {//移除原来请求中的header信息
             requestBuilder.removeHeader("Transfer-Encoding");
             requestBuilder.removeHeader("Content-Length");
             requestBuilder.removeHeader("Content-Type");
@@ -281,7 +305,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
         return requestBuilder.url(url).build();
 
-      case HTTP_CLIENT_TIMEOUT:
+      case HTTP_CLIENT_TIMEOUT://408 实际很少用到，一般需要重复发送一个相同的请求
         // 408's are rare in practice, but some servers like HAProxy use this response code. The
         // spec says that we may repeat the request without modifications. Modern browsers also
         // repeat the request (even non-idempotent ones.)

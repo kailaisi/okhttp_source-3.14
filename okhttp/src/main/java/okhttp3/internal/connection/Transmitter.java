@@ -43,14 +43,14 @@ import static okhttp3.internal.Util.closeQuietly;
 import static okhttp3.internal.Util.sameConnection;
 
 /**
- * Bridge between OkHttp's application and network layers. This class exposes high-level application
- * layer primitives: connections, requests, responses, and streams.
+ * Bridge between OkHttp's application and network layers. This class exposes high-level application layer primitives: connections, requests, responses, and streams.
  *
  * <p>This class supports {@linkplain #cancel asynchronous canceling}. This is intended to have the
  * smallest blast radius possible. If an HTTP/2 stream is active, canceling will cancel that stream
  * but not the other streams sharing its connection. But if the TLS handshake is still in progress
  * then canceling may break the entire connection.
  */
+//Okhttp应用和网络层之间的桥梁
 public final class Transmitter {
   private final OkHttpClient client;
   private final RealConnectionPool connectionPool;
@@ -65,6 +65,7 @@ public final class Transmitter {
   private @Nullable Object callStackTrace;
 
   private Request request;
+  //负责连接的创建
   private ExchangeFinder exchangeFinder;
 
   // Guarded by connectionPool.
@@ -155,6 +156,7 @@ public final class Transmitter {
   }
 
   /** Returns a new exchange to carry a new request and response. */
+  //返回一个新的交换器，以携带新的请求和响应。
   Exchange newExchange(Interceptor.Chain chain, boolean doExtensiveHealthChecks) {
     synchronized (connectionPool) {
       if (noMoreExchanges) {
@@ -165,8 +167,9 @@ public final class Transmitter {
             + "is still open: please call response.close()");
       }
     }
-
+    //通过exchangeFinder获取到一个exchangeCodec
     ExchangeCodec codec = exchangeFinder.find(client, chain, doExtensiveHealthChecks);
+    //用来进行发送和接收HTTP request和respone。
     Exchange result = new Exchange(this, call, eventListener, exchangeFinder, codec);
 
     synchronized (connectionPool) {

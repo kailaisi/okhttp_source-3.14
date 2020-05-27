@@ -24,6 +24,7 @@ import okhttp3.Response;
 import okhttp3.internal.http.RealInterceptorChain;
 
 /** Opens a connection to the target server and proceeds to the next interceptor. */
+//打开一个到服务器的连接
 public final class ConnectInterceptor implements Interceptor {
   public final OkHttpClient client;
 
@@ -38,6 +39,7 @@ public final class ConnectInterceptor implements Interceptor {
 
     // We need the network to satisfy this request. Possibly for validating a conditional GET.
     boolean doExtensiveHealthChecks = !request.method().equals("GET");
+    //获取一个Exchange，用来进行发送和接收HTTP request和respone。
     Exchange exchange = transmitter.newExchange(chain, doExtensiveHealthChecks);
 
     return realChain.proceed(request, transmitter, exchange);

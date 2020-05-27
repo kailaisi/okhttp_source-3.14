@@ -84,6 +84,7 @@ import static okhttp3.internal.platform.Platform.WARN;
  * value, the edit will fail silently. Callers should handle other problems by catching {@code
  * IOException} and responding appropriately.
  */
+//缓存类
 public final class DiskLruCache implements Closeable, Flushable {
   static final String JOURNAL_FILE = "journal";
   static final String JOURNAL_FILE_TEMP = "journal.tmp";
@@ -449,18 +450,18 @@ public final class DiskLruCache implements Closeable, Flushable {
   /**
    * Returns an editor for the entry named {@code key}, or null if another edit is in progress.
    */
+  //获取一个Editor
   public @Nullable Editor edit(String key) throws IOException {
     return edit(key, ANY_SEQUENCE_NUMBER);
   }
 
   synchronized Editor edit(String key, long expectedSequenceNumber) throws IOException {
     initialize();
-
     checkNotClosed();
     validateKey(key);
+    //lru缓存的实体
     Entry entry = lruEntries.get(key);
-    if (expectedSequenceNumber != ANY_SEQUENCE_NUMBER && (entry == null
-        || entry.sequenceNumber != expectedSequenceNumber)) {
+    if (expectedSequenceNumber != ANY_SEQUENCE_NUMBER && (entry == null || entry.sequenceNumber != expectedSequenceNumber)) {
       return null; // Snapshot is stale.
     }
     if (entry != null && entry.currentEditor != null) {
@@ -477,13 +478,14 @@ public final class DiskLruCache implements Closeable, Flushable {
     }
 
     // Flush the journal before creating files to prevent file leaks.
+    //往journal中写入以 "DIRTY" 开头的一行数据,表明该请求的数据已经被某个线程准备写入了
     journalWriter.writeUtf8(DIRTY).writeByte(' ').writeUtf8(key).writeByte('\n');
     journalWriter.flush();
 
     if (hasJournalErrors) {
       return null; // Don't edit; the journal can't be written.
     }
-
+    //如果之前没有缓存过要先生成一个DiskLruCache.Entry，最后生成一个Editor便于对文件进行操作
     if (entry == null) {
       entry = new Entry(key);
       lruEntries.put(key, entry);
@@ -801,6 +803,7 @@ public final class DiskLruCache implements Closeable, Flushable {
      * Returns an editor for this snapshot's entry, or null if either the entry has changed since
      * this snapshot was created or if another edit is in progress.
      */
+    //获取一个文件的
     public @Nullable Editor edit() throws IOException {
       return DiskLruCache.this.edit(key, sequenceNumber);
     }
@@ -824,8 +827,11 @@ public final class DiskLruCache implements Closeable, Flushable {
 
   /** Edits the values for an entry. */
   public final class Editor {
+    //此处的Entry是DiskLruCache.Entry,主要记录的是每个请求涉及到的具体文件
     final Entry entry;
+    //文件是否科协
     final boolean[] written;
+    //是否完成
     private boolean done;
 
     Editor(Entry entry) {
@@ -856,6 +862,7 @@ public final class DiskLruCache implements Closeable, Flushable {
      * Returns an unbuffered input stream to read the last committed value, or null if no value has
      * been committed.
      */
+    //获取到某个文件的输入流
     public Source newSource(int index) {
       synchronized (DiskLruCache.this) {
         if (done) {
@@ -877,6 +884,7 @@ public final class DiskLruCache implements Closeable, Flushable {
      * output stream encounters errors when writing to the filesystem, this edit will be aborted
      * when {@link #commit} is called. The returned output stream does not throw IOExceptions.
      */
+    //获取某个文件的输出流
     public Sink newSink(int index) {
       synchronized (DiskLruCache.this) {
         if (done) {

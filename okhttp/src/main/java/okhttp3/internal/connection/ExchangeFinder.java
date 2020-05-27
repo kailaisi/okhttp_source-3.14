@@ -50,9 +50,11 @@ import static okhttp3.internal.Util.closeQuietly;
  *
  * <p>It is possible to cancel the finding process.
  */
+//负责连接的创建，把创建好的连接放入连接池，如果连接池中已经有该连接，就直接取出复用
 final class ExchangeFinder {
   private final Transmitter transmitter;
   private final Address address;
+  //连接池
   private final RealConnectionPool connectionPool;
   private final Call call;
   private final EventListener eventListener;
@@ -76,8 +78,7 @@ final class ExchangeFinder {
         address, connectionPool.routeDatabase, call, eventListener);
   }
 
-  public ExchangeCodec find(
-      OkHttpClient client, Interceptor.Chain chain, boolean doExtensiveHealthChecks) {
+  public ExchangeCodec find(OkHttpClient client, Interceptor.Chain chain, boolean doExtensiveHealthChecks) {
     int connectTimeout = chain.connectTimeoutMillis();
     int readTimeout = chain.readTimeoutMillis();
     int writeTimeout = chain.writeTimeoutMillis();
@@ -85,8 +86,7 @@ final class ExchangeFinder {
     boolean connectionRetryEnabled = client.retryOnConnectionFailure();
 
     try {
-      RealConnection resultConnection = findHealthyConnection(connectTimeout, readTimeout,
-          writeTimeout, pingIntervalMillis, connectionRetryEnabled, doExtensiveHealthChecks);
+      RealConnection resultConnection = findHealthyConnection(connectTimeout, readTimeout,writeTimeout, pingIntervalMillis, connectionRetryEnabled, doExtensiveHealthChecks);
       return resultConnection.newCodec(client, chain);
     } catch (RouteException e) {
       trackFailure();
@@ -101,6 +101,7 @@ final class ExchangeFinder {
    * Finds a connection and returns it if it is healthy. If it is unhealthy the process is repeated
    * until a healthy connection is found.
    */
+  //获取到一个可用的连接，如果获取到的连接不可用，那么会循环知道获取到结果
   private RealConnection findHealthyConnection(int connectTimeout, int readTimeout,
       int writeTimeout, int pingIntervalMillis, boolean connectionRetryEnabled,
       boolean doExtensiveHealthChecks) throws IOException {
@@ -130,8 +131,7 @@ final class ExchangeFinder {
    * Returns a connection to host a new stream. This prefers the existing connection if it exists,
    * then the pool, finally building a new connection.
    */
-  private RealConnection findConnection(int connectTimeout, int readTimeout, int writeTimeout,
-      int pingIntervalMillis, boolean connectionRetryEnabled) throws IOException {
+  private RealConnection findConnection(int connectTimeout, int readTimeout, int writeTimeout, int pingIntervalMillis, boolean connectionRetryEnabled) throws IOException {
     boolean foundPooledConnection = false;
     RealConnection result = null;
     Route selectedRoute = null;

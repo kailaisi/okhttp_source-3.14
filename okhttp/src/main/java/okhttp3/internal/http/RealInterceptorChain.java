@@ -38,6 +38,7 @@ import static okhttp3.internal.Util.checkDuration;
  */
 public final class RealInterceptorChain implements Interceptor.Chain {
   private final List<Interceptor> interceptors;
+  //transmitter是应用和网络之间的一个桥梁
   private final Transmitter transmitter;
   private final @Nullable Exchange exchange;
   private final int index;

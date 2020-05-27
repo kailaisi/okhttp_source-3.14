@@ -26,9 +26,13 @@ import okio.BufferedSink;
 import okio.Okio;
 
 /** This is the last interceptor in the chain. It makes a network call to the server. */
+//责任链中的最后一个拦截器，用于向服务器发送网络请求。
+//在 ConnectInterceptor 拦截器的功能就是负责与服务器建立 Socket 连接，并且创建了一个 HttpStream 它包括通向服务器的输入流和输出流。
+// 而 CallServerInterceptor 拦截器的功能使用 HttpStream 与服务器进行数据的读写操作的。
 public final class CallServerInterceptor implements Interceptor {
   private final boolean forWebSocket;
 
+  //是否是websocket
   public CallServerInterceptor(boolean forWebSocket) {
     this.forWebSocket = forWebSocket;
   }
@@ -36,10 +40,11 @@ public final class CallServerInterceptor implements Interceptor {
   @Override public Response intercept(Chain chain) throws IOException {
     RealInterceptorChain realChain = (RealInterceptorChain) chain;
     Exchange exchange = realChain.exchange();
+    //获取请求。这里的请求已经不是最初始的request了，而是经过了前面的层层封装处理之后的request信息
     Request request = realChain.request();
 
     long sentRequestMillis = System.currentTimeMillis();
-
+    //向服务器端写请求头信息
     exchange.writeRequestHeaders(request);
 
     boolean responseHeadersStarted = false;
@@ -48,6 +53,8 @@ public final class CallServerInterceptor implements Interceptor {
       // If there's a "Expect: 100-continue" header on the request, wait for a "HTTP/1.1 100
       // Continue" response before transmitting the request body. If we don't get that, return
       // what we did get (such as a 4xx response) without ever transmitting the request body.
+      //用于客户端在发送POST请求数据之前，征询服务器情况，看服务器是否处理POST的数据，如果不处理，客户端则不上传POST数据，如果处理，则POST上传数据。
+      //判断服务器是否允许发送body
       if ("100-continue".equalsIgnoreCase(request.header("Expect"))) {
         exchange.flushRequest();
         responseHeadersStarted = true;
@@ -59,13 +66,11 @@ public final class CallServerInterceptor implements Interceptor {
         if (request.body().isDuplex()) {
           // Prepare a duplex body so that the application can send a request body later.
           exchange.flushRequest();
-          BufferedSink bufferedRequestBody = Okio.buffer(
-              exchange.createRequestBody(request, true));
+          BufferedSink bufferedRequestBody = Okio.buffer(exchange.createRequestBody(request, true));
           request.body().writeTo(bufferedRequestBody);
         } else {
           // Write the request body if the "Expect: 100-continue" expectation was met.
-          BufferedSink bufferedRequestBody = Okio.buffer(
-              exchange.createRequestBody(request, false));
+          BufferedSink bufferedRequestBody = Okio.buffer(exchange.createRequestBody(request, false));
           request.body().writeTo(bufferedRequestBody);
           bufferedRequestBody.close();
         }
@@ -93,7 +98,7 @@ public final class CallServerInterceptor implements Interceptor {
     if (responseBuilder == null) {
       responseBuilder = exchange.readResponseHeaders(false);
     }
-
+    //返回response
     Response response = responseBuilder
         .request(request)
         .handshake(exchange.connection().handshake())
@@ -103,8 +108,8 @@ public final class CallServerInterceptor implements Interceptor {
 
     int code = response.code();
     if (code == 100) {
-      // server sent a 100-continue even though we did not request one.
-      // try again to read the actual response
+      //100的状态码的处理继续发送请求，继续接受数据
+      // server sent a 100-continue even though we did not request one. try again to read the actual response
       response = exchange.readResponseHeaders(false)
           .request(request)
           .handshake(exchange.connection().handshake())
@@ -132,10 +137,9 @@ public final class CallServerInterceptor implements Interceptor {
         || "close".equalsIgnoreCase(response.header("Connection"))) {
       exchange.noNewExchangesOnConnection();
     }
-
+    //返回为空的数据处理
     if ((code == 204 || code == 205) && response.body().contentLength() > 0) {
-      throw new ProtocolException(
-          "HTTP " + code + " had non-zero Content-Length: " + response.body().contentLength());
+      throw new ProtocolException("HTTP " + code + " had non-zero Content-Length: " + response.body().contentLength());
     }
 
     return response;

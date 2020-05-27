@@ -21,5 +21,6 @@ import java.io.IOException;
  * Thrown when an HTTP/2 connection is shutdown (either explicitly or if the peer has sent a GOAWAY
  * frame) and an attempt is made to use the connection.
  */
+//当http2连接被显示的关闭时抛出的异常
 public final class ConnectionShutdownException extends IOException {
 }
