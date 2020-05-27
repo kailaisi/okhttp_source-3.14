@@ -176,10 +176,12 @@ public final class CacheInterceptor implements Interceptor {
   private Response cacheWritingResponse(final CacheRequest cacheRequest, Response response) throws IOException {
     // Some apps return a null body; for compatibility we treat that like a null cache request.
     if (cacheRequest == null) return response;
+    //缓存的body信息
     Sink cacheBodyUnbuffered = cacheRequest.body();
     if (cacheBodyUnbuffered == null) return response;
 
     final BufferedSource source = response.body().source();
+    //这个cacheBody是返回的CacheRequestImpl中的body
     final BufferedSink cacheBody = Okio.buffer(cacheBodyUnbuffered);
 
     Source cacheWritingSource = new Source() {
@@ -204,7 +206,7 @@ public final class CacheInterceptor implements Interceptor {
           }
           return -1;
         }
-
+        //将缓存的数据，拷贝到cacheBody中，也就是
         sink.copyTo(cacheBody.buffer(), sink.size() - bytesRead, bytesRead);
         cacheBody.emitCompleteSegments();
         return bytesRead;
@@ -227,6 +229,7 @@ public final class CacheInterceptor implements Interceptor {
     String contentType = response.header("Content-Type");
     long contentLength = response.body().contentLength();
     return response.newBuilder()
+            //这里创建了RealResponseBody对象。当最后进行返回数据读取的时候，会调用cacheWritingSource的read方法
         .body(new RealResponseBody(contentType, contentLength, Okio.buffer(cacheWritingSource)))
         .build();
   }

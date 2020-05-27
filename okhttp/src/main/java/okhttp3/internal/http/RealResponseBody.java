@@ -29,8 +29,7 @@ public final class RealResponseBody extends ResponseBody {
   private final long contentLength;
   private final BufferedSource source;
 
-  public RealResponseBody(
-      @Nullable String contentTypeString, long contentLength, BufferedSource source) {
+  public RealResponseBody(@Nullable String contentTypeString, long contentLength, BufferedSource source) {
     this.contentTypeString = contentTypeString;
     this.contentLength = contentLength;
     this.source = source;
