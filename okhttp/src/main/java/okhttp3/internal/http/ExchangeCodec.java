@@ -25,6 +25,7 @@ import okio.Sink;
 import okio.Source;
 
 /** Encodes HTTP requests and decodes HTTP responses. */
+//编码htpp的请求，并解码http的返回
 public interface ExchangeCodec {
   /**
    * The timeout to use while discarding a stream of input data. Since this is used for connection

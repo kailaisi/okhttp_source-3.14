@@ -47,6 +47,7 @@ public final class BridgeInterceptor implements Interceptor {
   }
 
   @Override public Response intercept(Chain chain) throws IOException {
+    //上一层的拦截器传入进来的Request
     Request userRequest = chain.request();
     Request.Builder requestBuilder = userRequest.newBuilder();
 
@@ -81,12 +82,12 @@ public final class BridgeInterceptor implements Interceptor {
     // the transfer stream.
     //标识是否是自动添加的Gzip压缩
     boolean transparentGzip = false;
-    //Accept-Encoding，以及Gzip压缩传输
+    //Accept-Encoding，以及Gzip压缩传输。如果增加了这个的话，最后需要对返回的信息进行解压缩处理
     if (userRequest.header("Accept-Encoding") == null && userRequest.header("Range") == null) {
       transparentGzip = true;
       requestBuilder.header("Accept-Encoding", "gzip");
     }
-    //设置Cookie列表
+    //设置的Cookie列表
     List<Cookie> cookies = cookieJar.loadForRequest(userRequest.url());
     if (!cookies.isEmpty()) {
       requestBuilder.header("Cookie", cookieHeader(cookies));
@@ -95,7 +96,7 @@ public final class BridgeInterceptor implements Interceptor {
     if (userRequest.header("User-Agent") == null) {
       requestBuilder.header("User-Agent", Version.userAgent());
     }
-    //网络返回信息
+    //网络返回信息networkResponse
     Response networkResponse = chain.proceed(requestBuilder.build());
 
     HttpHeaders.receiveHeaders(cookieJar, userRequest.url(), networkResponse.headers());

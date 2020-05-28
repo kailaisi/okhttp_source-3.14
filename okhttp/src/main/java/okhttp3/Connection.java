@@ -70,6 +70,7 @@ import javax.annotation.Nullable;
  */
 public interface Connection {
   /** Returns the route used by this connection. */
+  //返回此连接使用的路由
   Route route();
 
   /**
@@ -77,12 +78,14 @@ public interface Connection {
    * javax.net.ssl.SSLSocket SSL socket} if this connection is HTTPS. If this is an HTTP/2
    * connection the socket may be shared by multiple concurrent calls.
    */
+  //返回此连接正在使用的套接字。
   Socket socket();
 
   /**
    * Returns the TLS handshake used to establish this connection, or null if the connection is not
    * HTTPS.
    */
+  //返回用于建立此连接的TLS握手，如果连接不是* HTTPS则返回null。
   @Nullable Handshake handshake();
 
   /**
@@ -90,5 +93,6 @@ public interface Connection {
    * has been negotiated. This method returns {@link Protocol#HTTP_1_1} even if the remote peer is
    * using {@link Protocol#HTTP_1_0}.
    */
+  //返回应用层使用的协议。这里包含HTTP1.1 和HTTP1.0
   Protocol protocol();
 }

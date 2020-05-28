@@ -17,31 +17,36 @@
 package okhttp3.internal.connection;
 
 import java.io.IOException;
+
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.internal.http.RealInterceptorChain;
 
-/** Opens a connection to the target server and proceeds to the next interceptor. */
+/**
+ * Opens a connection to the target server and proceeds to the next interceptor.
+ */
 //打开一个到服务器的连接
 public final class ConnectInterceptor implements Interceptor {
-  public final OkHttpClient client;
+    public final OkHttpClient client;
 
-  public ConnectInterceptor(OkHttpClient client) {
-    this.client = client;
-  }
+    public ConnectInterceptor(OkHttpClient client) {
+        this.client = client;
+    }
 
-  @Override public Response intercept(Chain chain) throws IOException {
-    RealInterceptorChain realChain = (RealInterceptorChain) chain;
-    Request request = realChain.request();
-    Transmitter transmitter = realChain.transmitter();
+    @Override
+    public Response intercept(Chain chain) throws IOException {
+        RealInterceptorChain realChain = (RealInterceptorChain) chain;
+        Request request = realChain.request();
+        //获取transmitter
+        Transmitter transmitter = realChain.transmitter();
 
-    // We need the network to satisfy this request. Possibly for validating a conditional GET.
-    boolean doExtensiveHealthChecks = !request.method().equals("GET");
-    //获取一个Exchange，用来进行发送和接收HTTP request和respone。
-    Exchange exchange = transmitter.newExchange(chain, doExtensiveHealthChecks);
+        // We need the network to satisfy this request. Possibly for validating a conditional GET.
+        boolean doExtensiveHealthChecks = !request.method().equals("GET");
+        //获取一个Exchange，负责从创建的连接的IO流中写入请求和读取响应，完成一次请求/响应的过程
+        Exchange exchange = transmitter.newExchange(chain, doExtensiveHealthChecks);
 
-    return realChain.proceed(request, transmitter, exchange);
-  }
+        return realChain.proceed(request, transmitter, exchange);
+    }
 }
