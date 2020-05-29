@@ -185,11 +185,12 @@ public final class Transmitter {
             return result;
         }
     }
-
+    //设置一个连接
     void acquireConnectionNoEvents(RealConnection connection) {
         assert (Thread.holdsLock(connectionPool));
-
+        //如果已经存在了，则直接抛出已将
         if (this.connection != null) throw new IllegalStateException();
+        //设置给当前transmitter的连接
         this.connection = connection;
         connection.transmitters.add(new TransmitterReference(this, callStackTrace));
     }

@@ -133,14 +133,16 @@ final class ExchangeFinder {
     }
 
     /**
-     * Returns a connection to host a new stream. This prefers the existing connection if it exists,
-     * then the pool, finally building a new connection.
+     * Returns a connection to host a new stream. This prefers the existing connection if it exists, then the pool, finally building a new connection.
      */
+    //返回一个持有新的流（即输入输出流）连接。如果连接已存在则从池中获取，否则就创建一个新的连接
     private RealConnection findConnection(int connectTimeout, int readTimeout, int writeTimeout, int pingIntervalMillis, boolean connectionRetryEnabled) throws IOException {
+        //标识是否是从池中获取的连接
         boolean foundPooledConnection = false;
         //返回的结果
         RealConnection result = null;
         Route selectedRoute = null;
+        //之前创建的连接
         RealConnection releasedConnection;
         Socket toClose;
         synchronized (connectionPool) {
@@ -187,6 +189,7 @@ final class ExchangeFinder {
             eventListener.connectionAcquired(call, result);
         }
         if (result != null) {
+            //已经找到一个可以使用的连接（之前申请的或者从池中获取到的），则直接返回
             // If we found an already-allocated or pooled connection, we're done.
             return result;
         }
@@ -235,13 +238,12 @@ final class ExchangeFinder {
         }
 
         // Do TCP + TLS handshakes. This is a blocking operation.
-        //调用connect方法进行连接
+        //进入这里证明是新创建的连接，调用connect方法进行连接。进行TCP+TLS握手。这是一种阻塞操作
         result.connect(connectTimeout, readTimeout, writeTimeout, pingIntervalMillis,connectionRetryEnabled, call, eventListener);
         connectionPool.routeDatabase.connected(result.route());
 
         Socket socket = null;
         synchronized (connectionPool) {
-            //
             connectingConnection = null;
             // Last attempt at connection coalescing, which only occurs if we attempted multiple
             // concurrent connections to the same host.

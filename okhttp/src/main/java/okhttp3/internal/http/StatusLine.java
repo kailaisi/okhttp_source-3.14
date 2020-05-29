@@ -47,7 +47,9 @@ public final class StatusLine {
 
     // Parse protocol like "HTTP/1.1" followed by a space.
     int codeStart;
+    //协议版本号
     Protocol protocol;
+    //HTTP协议类型
     if (statusLine.startsWith("HTTP/1.")) {
       if (statusLine.length() < 9 || statusLine.charAt(8) != ' ') {
         throw new ProtocolException("Unexpected status line: " + statusLine);
@@ -61,11 +63,11 @@ public final class StatusLine {
       } else {
         throw new ProtocolException("Unexpected status line: " + statusLine);
       }
-    } else if (statusLine.startsWith("ICY ")) {
+    } else if (statusLine.startsWith("ICY ")) {//ICY协议类型，使用HTTP1.0来处理
       // Shoutcast uses ICY instead of "HTTP/1.0".
       protocol = Protocol.HTTP_1_0;
       codeStart = 4;
-    } else {
+    } else {//其他的不支持
       throw new ProtocolException("Unexpected status line: " + statusLine);
     }
 
@@ -73,6 +75,7 @@ public final class StatusLine {
     if (statusLine.length() < codeStart + 3) {
       throw new ProtocolException("Unexpected status line: " + statusLine);
     }
+    //返回的状态码信息  200，301，302等等，都是4位的数字
     int code;
     try {
       code = Integer.parseInt(statusLine.substring(codeStart, codeStart + 3));
@@ -82,6 +85,7 @@ public final class StatusLine {
 
     // Parse an optional response message like "OK" or "Not Modified". If it
     // exists, it is separated from the response code by a space.
+    //协议后面的信息
     String message = "";
     if (statusLine.length() > codeStart + 3) {
       if (statusLine.charAt(codeStart + 3) != ' ') {

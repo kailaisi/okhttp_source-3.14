@@ -125,11 +125,13 @@ public final class RealConnection extends Http2Connection.Listener implements Co
      * The maximum number of concurrent streams that can be carried by this connection. If {@code
      * allocations.size() < allocationLimit} then new streams can be created on this connection.
      */
+    //此连接可承载的并发流的最大数目
     private int allocationLimit = 1;
 
     /**
      * Current calls carried by this connection.
      */
+    //当前连接能够承载的连接（Call）
     final List<Reference<Transmitter>> transmitters = new ArrayList<>();
 
     /**
@@ -197,7 +199,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
                 } else {//socket连接
                     connectSocket(connectTimeout, readTimeout, call, eventListener);
                 }
-                //建立http连接
+                //建立协议
                 establishProtocol(connectionSpecSelector, pingIntervalMillis, call, eventListener);
                 eventListener.connectEnd(call, route.socketAddress(), route.proxy(), protocol);
                 break;
@@ -318,6 +320,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
         }
 
         eventListener.secureConnectStart(call);
+        //TLS
         connectTls(connectionSpecSelector);
         eventListener.secureConnectEnd(call, handshake);
 

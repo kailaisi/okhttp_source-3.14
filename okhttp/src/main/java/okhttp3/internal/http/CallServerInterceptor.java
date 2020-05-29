@@ -37,7 +37,8 @@ public final class CallServerInterceptor implements Interceptor {
     this.forWebSocket = forWebSocket;
   }
 
-  @Override public Response intercept(Chain chain) throws IOException {
+  @Override
+  public Response intercept(Chain chain) throws IOException {
     RealInterceptorChain realChain = (RealInterceptorChain) chain;
     Exchange exchange = realChain.exchange();
     //获取请求。这里的请求已经不是最初始的request了，而是经过了前面的层层封装处理之后的request信息
@@ -58,14 +59,18 @@ public final class CallServerInterceptor implements Interceptor {
       if ("100-continue".equalsIgnoreCase(request.header("Expect"))) {
         exchange.flushRequest();
         responseHeadersStarted = true;
+        //获取返回的头信息
         exchange.responseHeadersStart();
+        //读取返回的头信息，如果服务器接收RequestBody，会返回null
         responseBuilder = exchange.readResponseHeaders(true);
       }
-
+      //如果RequestBuilder为null，说明Expect不为100-continue或者服务器同意接收RequestBody
       if (responseBuilder == null) {
+        //向服务器发送body
         if (request.body().isDuplex()) {
           // Prepare a duplex body so that the application can send a request body later.
           exchange.flushRequest();
+          //写入请求体
           BufferedSink bufferedRequestBody = Okio.buffer(exchange.createRequestBody(request, true));
           request.body().writeTo(bufferedRequestBody);
         } else {
@@ -88,17 +93,19 @@ public final class CallServerInterceptor implements Interceptor {
     }
 
     if (request.body() == null || !request.body().isDuplex()) {
+      //请求结束
       exchange.finishRequest();
     }
 
     if (!responseHeadersStarted) {
       exchange.responseHeadersStart();
     }
-
+    //读取相应的header
     if (responseBuilder == null) {
+      //读取相应头
       responseBuilder = exchange.readResponseHeaders(false);
     }
-    //返回response
+    //通过Builder模式构造返回response
     Response response = responseBuilder
         .request(request)
         .handshake(exchange.connection().handshake())
@@ -108,7 +115,7 @@ public final class CallServerInterceptor implements Interceptor {
 
     int code = response.code();
     if (code == 100) {
-      //100的状态码的处理继续发送请求，继续接受数据
+      //100的状态码的处理继续发送请求，继续接收数据
       // server sent a 100-continue even though we did not request one. try again to read the actual response
       response = exchange.readResponseHeaders(false)
           .request(request)
@@ -116,7 +123,6 @@ public final class CallServerInterceptor implements Interceptor {
           .sentRequestAtMillis(sentRequestMillis)
           .receivedResponseAtMillis(System.currentTimeMillis())
           .build();
-
       code = response.code();
     }
 
@@ -124,10 +130,12 @@ public final class CallServerInterceptor implements Interceptor {
 
     if (forWebSocket && code == 101) {
       // Connection is upgrading, but we need to ensure interceptors see a non-null response body.
+      //但对于websocket，返回的是空的body体
       response = response.newBuilder()
           .body(Util.EMPTY_RESPONSE)
           .build();
     } else {
+      //读取body体
       response = response.newBuilder()
           .body(exchange.openResponseBody(response))
           .build();
