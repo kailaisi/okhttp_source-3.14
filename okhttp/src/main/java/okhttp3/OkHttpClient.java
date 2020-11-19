@@ -120,6 +120,7 @@ import static okhttp3.internal.Util.checkDuration;
  * <p>OkHttp also uses daemon threads for HTTP/2 connections. These will exit automatically if they
  * remain idle.
  */
+ //配置中心，所有的配置都可以在这个类里面进行设置
 public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory {
   static final List<Protocol> DEFAULT_PROTOCOLS = Util.immutableList(
       Protocol.HTTP_2, Protocol.HTTP_1_1);
@@ -168,16 +169,21 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
       }
     };
   }
-
+  //调度器，用于在后台发起网络请求，有后台总请求数和单主机请求数的控制
   final Dispatcher dispatcher;
   final @Nullable Proxy proxy;
   final List<Protocol> protocols;
   final List<ConnectionSpec> connectionSpecs;
+  //拦截器
   final List<Interceptor> interceptors;
+  //网络拦截器。直接和⽹络请求交互的 Interceptor 配置到这⾥，例如如果你想查看返回的 301 报⽂或者未解压的 Response Body，需要在这⾥看
   final List<Interceptor> networkInterceptors;
+  //工厂，用来
   final EventListener.Factory eventListenerFactory;
   final ProxySelector proxySelector;
+  //管理cookie的管理器
   final CookieJar cookieJar;
+  //缓存的配置
   final @Nullable Cache cache;
   final @Nullable InternalCache internalCache;
   final SocketFactory socketFactory;
@@ -186,11 +192,17 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
   final HostnameVerifier hostnameVerifier;
   final CertificatePinner certificatePinner;
   final Authenticator proxyAuthenticator;
+  //自动重新认证
   final Authenticator authenticator;
+  //连接池
   final ConnectionPool connectionPool;
+  //域名解析。
   final Dns dns;
+  //是否支持协议切换支持的重定向。比如说从http,重定向到https
   final boolean followSslRedirects;
+  //是否支持重定向
   final boolean followRedirects;
+  //连接失败重试
   final boolean retryOnConnectionFailure;
   final int callTimeout;
   final int connectTimeout;
