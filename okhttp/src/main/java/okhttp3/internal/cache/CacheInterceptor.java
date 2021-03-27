@@ -41,8 +41,7 @@ import static okhttp3.internal.Util.discard;
 //关于Http的缓存可参考：https://segmentfault.com/a/1190000010690320
 public final class CacheInterceptor implements Interceptor {
     //这里的cache,是通过OkhttpClient传进来的，Cache.internalCache
-    final @Nullable
-    InternalCache cache;
+    final @Nullable InternalCache cache;
 
     public CacheInterceptor(@Nullable InternalCache cache) {
         this.cache = cache;

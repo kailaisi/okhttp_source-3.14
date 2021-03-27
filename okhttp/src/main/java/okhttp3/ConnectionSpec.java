@@ -45,6 +45,7 @@ import static okhttp3.internal.Util.nonEmptyIntersection;
  * <a href="https://github.com/square/okhttp/wiki/TLS-Configuration-History">OkHttp's TLS
  * Configuration History</a> to track these changes.
  */
+//对应的TLS协议以及对应的加密套件类，
 public final class ConnectionSpec {
 
   // Most secure but generally supported list.
@@ -119,6 +120,7 @@ public final class ConnectionSpec {
       .build();
 
   /** Unencrypted, unauthenticated connections for {@code http:} URLs. */
+  //不进行任何的加密和认证连接，也就是HTTP
   public static final ConnectionSpec CLEARTEXT = new Builder(false).build();
 
   final boolean tls;

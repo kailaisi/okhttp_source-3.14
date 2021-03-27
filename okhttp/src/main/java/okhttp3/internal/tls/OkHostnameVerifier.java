@@ -53,6 +53,7 @@ public final class OkHostnameVerifier implements HostnameVerifier {
   }
 
   public boolean verify(String host, X509Certificate certificate) {
+    //根据你输入的host，验证域名或者ip的合法性
     return verifyAsIpAddress(host)
         ? verifyIpAddress(host, certificate)
         : verifyHostname(host, certificate);

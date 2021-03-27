@@ -110,6 +110,7 @@ final class ExchangeFinder {
                                                  int writeTimeout, int pingIntervalMillis, boolean connectionRetryEnabled,
                                                  boolean doExtensiveHealthChecks) throws IOException {
         while (true) {
+            //拿一个连接
             RealConnection candidate = findConnection(connectTimeout, readTimeout, writeTimeout, pingIntervalMillis, connectionRetryEnabled);
 
             // If this is a brand new connection, we can skip the extensive health checks.
@@ -160,13 +161,14 @@ final class ExchangeFinder {
 
             if (transmitter.connection != null) {
                 // We had an already-allocated connection and it's good.
-                //证明之前创建的连接是可以使用的。这里就使用之前的结果。那么连接不需要释放了
+                //最初始获取方式：    复用之前的连接
+                // 证明之前创建的连接是可以使用的。这里就使用之前的结果。那么连接不需要释放了
                 result = transmitter.connection;
                 releasedConnection = null;
             }
 
             if (result == null) {
-                //如果连接不可用，则尝试从连接池获取到一个连接
+                //第一种获取方式：   尝试从连接池获取到一个连接
                 // Attempt to get a connection from the pool.
                 if (connectionPool.transmitterAcquirePooledConnection(address, transmitter, null, false)) {
                     foundPooledConnection = true;
@@ -209,7 +211,7 @@ final class ExchangeFinder {
             if (newRouteSelection) {
                 // Now that we have a set of IP addresses, make another attempt at getting a connection from
                 // the pool. This could match due to connection coalescing.
-                //使用多IP，从连接池中尝试获取
+                //第二种获取方式：   使用多IP，从连接池中尝试获取
                 routes = routeSelection.getAll();
                 if (connectionPool.transmitterAcquirePooledConnection(address, transmitter, routes, false)) {
                     foundPooledConnection = true;
@@ -224,7 +226,7 @@ final class ExchangeFinder {
 
                 // Create a connection and assign it to this allocation immediately. This makes it possible
                 // for an asynchronous cancel() to interrupt the handshake we're about to do.
-                //创建一个新的连接
+                //第三种方式：    创建一个新的连接
                 result = new RealConnection(connectionPool, selectedRoute);
                 connectingConnection = result;
             }

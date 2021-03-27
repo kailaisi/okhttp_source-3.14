@@ -128,10 +128,12 @@ final class RealCall implements Call {
     }
 
     final class AsyncCall extends NamedRunnable {
+        //执行完毕后的回调函数
         private final Callback responseCallback;
         private volatile AtomicInteger callsPerHost = new AtomicInteger(0);
 
         AsyncCall(Callback responseCallback) {
+            //给线程重新命名。
             super("OkHttp %s", redactedUrl());
             this.responseCallback = responseCallback;
         }
@@ -179,7 +181,7 @@ final class RealCall implements Call {
         }
 
         @Override
-        protected void execute() {
+        protected void execute() {//父类的run方法会对线程重新命名，然后调用execute方法
             boolean signalledCallback = false;
             transmitter.timeoutEnter();
             try {

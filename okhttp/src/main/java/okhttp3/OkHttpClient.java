@@ -172,13 +172,15 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
   //调度器，用于在后台发起网络请求，有后台总请求数和单主机请求数的控制
   final Dispatcher dispatcher;
   final @Nullable Proxy proxy;
+  //支持的协议。也jiushi HTTP版本
   final List<Protocol> protocols;
+  //连接规范，是HTTPS中客户端给服务器发送的本身支持的协议类型（TLS1.1，TLS1.,TLS1.3）以及对应的加密套件
   final List<ConnectionSpec> connectionSpecs;
   //拦截器
   final List<Interceptor> interceptors;
   //网络拦截器。直接和⽹络请求交互的 Interceptor 配置到这⾥，例如如果你想查看返回的 301 报⽂或者未解压的 Response Body，需要在这⾥看
   final List<Interceptor> networkInterceptors;
-  //工厂，用来
+  //工厂，用来进行网络过程请求的监听器
   final EventListener.Factory eventListenerFactory;
   final ProxySelector proxySelector;
   //管理cookie的管理器
@@ -186,13 +188,17 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
   //缓存的配置
   final @Nullable Cache cache;
   final @Nullable InternalCache internalCache;
+  //所有证书验证的信息
   final SocketFactory socketFactory;
   final SSLSocketFactory sslSocketFactory;
+  //用于验证证书的合法性
   final CertificateChainCleaner certificateChainCleaner;
+  //用于验证证书的是否是自己要访问的主机是否正确
   final HostnameVerifier hostnameVerifier;
+  //
   final CertificatePinner certificatePinner;
   final Authenticator proxyAuthenticator;
-  //自动重新认证
+  //自动重新认证。可以用来处理token过期的问题，通过增加这个处理方式但是这个一般是需要返回401错误码的时候，才会走这种方式
   final Authenticator authenticator;
   //连接池
   final ConnectionPool connectionPool;
@@ -208,6 +214,7 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
   final int connectTimeout;
   final int readTimeout;
   final int writeTimeout;
+  //ping pong机制的间隔，是ws和http2中使用的
   final int pingInterval;
 
   public OkHttpClient() {

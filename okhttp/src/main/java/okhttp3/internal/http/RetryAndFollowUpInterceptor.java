@@ -81,7 +81,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         int followUpCount = 0;
         Response priorResponse = null;
         while (true) {
-            //尝试创建连接
+            //为连接进行一些一些准备工作
             transmitter.prepareToConnect(request);
 
             if (transmitter.isCanceled()) {

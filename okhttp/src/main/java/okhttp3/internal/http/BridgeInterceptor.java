@@ -38,7 +38,8 @@ import static okhttp3.internal.Util.hostHeader;
  * response.
  */
 //桥接拦截器，用于桥接应用数据和网络的数据
-  //1. 将用户的请求request，桥接变为网络请求request。2.将网络的response信息转化为用户的response
+//1. 将用户的请求request，桥接变为网络请求request。
+// 2.将网络的response信息转化为用户的response
 public final class BridgeInterceptor implements Interceptor {
   private final CookieJar cookieJar;
 
@@ -106,7 +107,7 @@ public final class BridgeInterceptor implements Interceptor {
     if (transparentGzip
         && "gzip".equalsIgnoreCase(networkResponse.header("Content-Encoding"))
         && HttpHeaders.hasBody(networkResponse)) {
-      //如果代码里面自动使用了gzip压缩，那么需要通过Gzip进行处理，移除对应的Header，将读取的数据进行解压缩
+      //代码里面自动使用了gzip压缩，那么需要通过Gzip进行处理，移除对应的Header，将读取的数据进行解压缩
       GzipSource responseBody = new GzipSource(networkResponse.body().source());
       //移除header中的Content-Length和"Content-Encoding
       Headers strippedHeaders = networkResponse.headers().newBuilder()

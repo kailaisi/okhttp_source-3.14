@@ -34,6 +34,7 @@ import okhttp3.internal.Util;
  * <p>This value object describes a completed handshake. Use {@link ConnectionSpec} to set policy
  * for new handshakes.
  */
+//Http握手机制
 public final class Handshake {
   private final TlsVersion tlsVersion;
   private final CipherSuite cipherSuite;

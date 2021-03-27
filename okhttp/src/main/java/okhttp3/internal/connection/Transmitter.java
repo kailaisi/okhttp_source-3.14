@@ -173,7 +173,7 @@ public final class Transmitter {
                         + "is still open: please call response.close()");
             }
         }
-        //获取对应的http的编码解码器
+        //获取对应的http的编码解码器。不同的http版本所使用的codec是不一样的
         ExchangeCodec codec = exchangeFinder.find(client, chain, doExtensiveHealthChecks);
         //用来进行发送和接收HTTP request和respone。
         Exchange result = new Exchange(this, call, eventListener, exchangeFinder, codec);
