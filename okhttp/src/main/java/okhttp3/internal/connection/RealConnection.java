@@ -84,7 +84,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
     // The fields below are initialized by connect() and never reassigned.
 
     /**
-     * The low-level TCP socket.
+     * The low-level TCP socket.底层的TCP连接
      */
     private Socket rawSocket;
 
@@ -92,7 +92,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
      * The application layer socket. Either an {@link SSLSocket} layered over {@link #rawSocket}, or
      * {@link #rawSocket} itself if this connection does not use SSL.
      */
-    //这个连接使用的socket。
+    //应用层的socket信息。如果是非SSL连接，这个socket就是rawSocket连接本身，如果是SSL连接，这个socket就是TSL中创建的sslSocket连接。
     private Socket socket;
     //如果是https，这里表示的握手信息
     private Handshake handshake;
@@ -161,7 +161,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
         result.idleAtNanos = idleAtNanos;
         return result;
     }
-    //进行连接
+    //建立连接
     public void connect(int connectTimeout, int readTimeout, int writeTimeout,
                         int pingIntervalMillis, boolean connectionRetryEnabled, Call call,
                         EventListener eventListener) {
@@ -190,13 +190,16 @@ public final class RealConnection extends Http2Connection.Listener implements Co
         //尝试连接
         while (true) {
             try {
-                if (route.requiresTunnel()) {//通道连接
+                //如果是https请求，并且使用了http代理服务器。一般是通过builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", 8080)))实现
+                if (route.requiresTunnel()) {
+                    //隧道技术创建连接。
                     connectTunnel(connectTimeout, readTimeout, writeTimeout, call, eventListener);
                     if (rawSocket == null) {
                         // We were unable to connect the tunnel but properly closed down our resources.
                         break;
                     }
-                } else {//socket连接
+                } else {
+                    //直接创建socket连接
                     connectSocket(connectTimeout, readTimeout, call, eventListener);
                 }
                 //建立协议
@@ -268,11 +271,10 @@ public final class RealConnection extends Http2Connection.Listener implements Co
     /**
      * Does all the work necessary to build a full HTTP or HTTPS connection on a raw socket.
      */
-    private void connectSocket(int connectTimeout, int readTimeout, Call call,
-                               EventListener eventListener) throws IOException {
+    private void connectSocket(int connectTimeout, int readTimeout, Call call, EventListener eventListener) throws IOException {
         Proxy proxy = route.proxy();
         Address address = route.address();
-
+        //创建socket
         rawSocket = proxy.type() == Proxy.Type.DIRECT || proxy.type() == Proxy.Type.HTTP
                 ? address.socketFactory().createSocket()
                 : new Socket(proxy);
@@ -281,7 +283,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
         rawSocket.setSoTimeout(readTimeout);
         try {
             //Platform.get()会根据具体的平台返回。属于工厂模式？
-            //connectSocket实际是调用rawSocket.connect创建连接
+            //connectSocket实际是调用rawSocket.connect，打开socket连接
             Platform.get().connectSocket(rawSocket, route.socketAddress(), connectTimeout);
         } catch (ConnectException e) {
             ConnectException ce = new ConnectException("Failed to connect to " + route.socketAddress());
@@ -306,21 +308,23 @@ public final class RealConnection extends Http2Connection.Listener implements Co
 
     private void establishProtocol(ConnectionSpecSelector connectionSpecSelector,
                                    int pingIntervalMillis, Call call, EventListener eventListener) throws IOException {
-        if (route.address().sslSocketFactory() == null) {
+        if (route.address().sslSocketFactory() == null) {//非TLS加密类型的协议
             if (route.address().protocols().contains(Protocol.H2_PRIOR_KNOWLEDGE)) {
+                //HTTP2连接
                 socket = rawSocket;
                 protocol = Protocol.H2_PRIOR_KNOWLEDGE;
+                //创建HTTP2的连接
                 startHttp2(pingIntervalMillis);
                 return;
             }
-
+            //http类型的连接
             socket = rawSocket;
             protocol = Protocol.HTTP_1_1;
             return;
         }
 
         eventListener.secureConnectStart(call);
-        //TLS
+        //TLS加密连接
         connectTls(connectionSpecSelector);
         eventListener.secureConnectEnd(call, handshake);
 
@@ -363,6 +367,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
             Handshake unverifiedHandshake = Handshake.get(sslSocketSession);
 
             // Verify that the socket's certificates are acceptable for the target host.
+            //验证证书的host是否一致
             if (!address.hostnameVerifier().verify(address.url().host(), sslSocketSession)) {
                 List<Certificate> peerCertificates = unverifiedHandshake.peerCertificates();
                 if (!peerCertificates.isEmpty()) {
@@ -379,6 +384,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
             }
 
             // Check that the certificate pinner is satisfied by the certificates presented.
+            //验证证书的合法性
             address.certificatePinner().check(address.url().host(),
                     unverifiedHandshake.peerCertificates());
 

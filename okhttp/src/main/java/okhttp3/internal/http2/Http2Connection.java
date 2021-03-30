@@ -527,6 +527,7 @@ public final class Http2Connection implements Closeable {
    */
   void start(boolean sendConnectionPreface) throws IOException {
     if (sendConnectionPreface) {
+      //写入http2的握手消息
       writer.connectionPreface();
       writer.settings(okHttpSettings);
       int windowSize = okHttpSettings.getInitialWindowSize();
